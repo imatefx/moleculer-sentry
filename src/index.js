@@ -8,6 +8,8 @@
 
 const Sentry = require('@sentry/node');
 const SentryUtils = require('@sentry/utils');
+const flatten = require('flat');
+const _ = require('lodash');
 
 module.exports = function (eventName) {
   const schema = {
@@ -25,8 +27,7 @@ module.exports = function (eventName) {
       scope: {
         /** @type {String?} Name of the meta containing user infos */
         user: null
-      },
-      eventName: '$tracing.spans'
+      }
     },
 
     /**
@@ -87,24 +88,37 @@ module.exports = function (eventName) {
           scope.setTag('code', metric.error.code);
 
           if (metric.error.data) {
-            scope.setExtra('data', metric.error.data);
+            _.map(flatten(metric.error.data), (val, key) => {
+              scope.setExtra(key, val);
+            });
           }
 
           if (metric.tags) {
-            scope.setExtra('tags', metric.tags);
+            _.map(flatten(metric.tags), (val, key) => {
+              scope.setExtra(key, val);
+            });
           }
 
-          if (metric.tags) {
-            scope.setExtra('service', metric.service);
+          if (metric.service) {
+            _.map(flatten(metric.service), (val, key) => {
+              scope.setExtra(key, val);
+            });
           }
 
-          if (this.settings.scope && this.settings.scope.user && metric.meta && metric.meta[this.settings.scope.user] ) {
+          if (
+            this.settings.scope &&
+            this.settings.scope.user &&
+            metric.meta &&
+            metric.meta[this.settings.scope.user]
+          ) {
             scope.setUser(metric.meta[this.settings.scope.user]);
           }
 
           Sentry.captureEvent({
             message: metric.error.message,
-            stacktrace: !Array.isArray(metric.error.stack) ? [metric.error.stack] : metric.error.stack
+            stacktrace: !Array.isArray(metric.error.stack)
+              ? [metric.error.stack]
+              : metric.error.stack
           });
         });
       },
